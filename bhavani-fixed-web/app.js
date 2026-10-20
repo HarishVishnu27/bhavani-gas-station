@@ -40,6 +40,12 @@ function fmt(n) { return (n ?? 0).toString(); }
 function fmtTime(d) { return d ? new Date(d).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : '—'; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-IN') : '—'; }
 function initials(name) { return (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2); }
+function lineDetailStatus(line) { return line.detailsStatus || 'APPROVED'; }
+function detailStatusBadge(status) {
+  if (status === 'APPROVED') return '<span class="badge badge-approved">Approved</span>';
+  if (status === 'SUBMITTED') return '<span class="badge badge-submitted">Waiting Approval</span>';
+  return '<span class="badge badge-pending">Pending Fill</span>';
+}
 
 // ────────────────────────────────── API Config
 $('#apiBase').value = state.apiBase;
@@ -245,6 +251,17 @@ async function renderStockTab() {
   }
 
   content.innerHTML = formHtml + `
+  ${['owner', 'supervisor'].includes(state.user.role) ? `
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📆 Opening / Closing Stock (Excel Day Ledger)</div>
+      <div class="toolbar">
+        <input type="date" id="ocDate" value="${todayStr()}" style="padding:6px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px" />
+        <button id="loadOcBtn" class="btn-sm btn-primary">Load</button>
+      </div>
+    </div>
+    <div id="ocTable">Loading…</div>
+  </div>` : ''}
   <div class="panel">
     <div class="panel-title">📊 Live Stock Balances</div>
     <div id="stockTables"><p class="empty-state">Loading…</p></div>
@@ -269,6 +286,12 @@ async function renderStockTab() {
         $('#openingMsg').innerHTML = `<div class="msg-error">${err.message}</div>`;
       }
     });
+  }
+
+  if (['owner', 'supervisor'].includes(state.user.role)) {
+    $('#loadOcBtn').addEventListener('click', loadOpeningClosingTable);
+    $('#ocDate').addEventListener('change', loadOpeningClosingTable);
+    loadOpeningClosingTable();
   }
 
   await loadStockTables();
@@ -302,6 +325,30 @@ async function loadStockTables() {
         </div>
       </div>`;
   }).join('');
+}
+
+async function loadOpeningClosingTable() {
+  const el = $('#ocTable');
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--muted)">Loading…</p>';
+  try {
+    const date = $('#ocDate')?.value || todayStr();
+    const data = await api(`/reports/consolidated?date=${date}`);
+    const rows = data.rows.map(r => `<tr>
+      <td><strong>${r.cylinderType.name}</strong></td>
+      <td>${r.openingStock.filled}</td><td>${r.openingStock.empty}</td><td>${r.openingStock.defect}</td>
+      <td>${r.closingStock.filled}</td><td>${r.closingStock.empty}</td><td>${r.closingStock.defect}</td>
+    </tr>`).join('');
+    el.innerHTML = `<div class="table-wrap"><table class="datatable">
+      <thead>
+        <tr><th rowspan="2">Cylinder Type</th><th colspan="3">Opening</th><th colspan="3">Closing</th></tr>
+        <tr><th>Filled</th><th>Empty</th><th>Defect</th><th>Filled</th><th>Empty</th><th>Defect</th></tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan=7>No records for this date.</td></tr>'}</tbody>
+    </table></div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="msg-error">${err.message}</div>`;
+  }
 }
 
 // ────────────────────────────────── Simple Ledger helper
@@ -692,7 +739,8 @@ async function renderMyDayTab() {
       // term (Delivered vs Emty+Defect collected), which should be equal once every
       // delivered cylinder has come back as either an empty or a defect.
       const emptyBal = l.received - (l.emptyCollected + l.defectCollected) - l.nc - l.returned;
-      const disabled = l.closed ? 'disabled' : '';
+      const detailsStatus = lineDetailStatus(l);
+      const disabled = l.closed || detailsStatus === 'APPROVED' ? 'disabled' : '';
       // Tally check: filledBal should equal emptyBal at day end
       // (only meaningful when line is closed or has some data entered)
       const hasData = l.delivered > 0 || l.nc > 0 || l.emptyCollected > 0 || l.returned > 0;
@@ -708,10 +756,13 @@ async function renderMyDayTab() {
         <td><input class="editable inline-num" data-field="emptyCollected" type="number" min="0" value="${l.emptyCollected}" ${disabled} style="width:65px" /></td>
         <td><input class="editable inline-num" data-field="defectCollected" type="number" min="0" value="${l.defectCollected}" ${disabled} style="width:65px" /></td>
         <td class="bal-empty ${tallyClass}"><strong>${emptyBal}</strong>${hasData ? (tallyMatch ? ' <span class="tally-icon">✓</span>' : ' <span class="tally-icon">≠</span>') : ''}</td>
-        <td>${l.closed
-          ? '<span class="badge badge-accepted">Closed</span>'
-          : `<button class="btn-sm btn-primary saveLineBtn" data-line="${l._id}">Save</button>`
-        }</td>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+            ${detailStatusBadge(detailsStatus)}
+            ${l.closed ? '<span class="badge badge-accepted">Stock Closed</span>' : ''}
+            ${!l.closed && detailsStatus !== 'APPROVED' ? `<button class="btn-sm btn-primary saveLineBtn" data-line="${l._id}">Save</button>` : ''}
+          </div>
+        </td>
       </tr>`;
     }).join('');
 
@@ -730,6 +781,9 @@ async function renderMyDayTab() {
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <strong style="font-size:14px">${g.cylinderType.name}</strong>
           ${tallyBadge}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">
+          Status: <strong>Pending Fill</strong> → details not saved yet, <strong>Waiting Approval</strong> → saved by delivery and waiting supervisor approval, <strong>Approved</strong> → supervisor verified details.
         </div>
         <div class="table-wrap">
           <table class="datatable myDay-table">
@@ -903,7 +957,7 @@ function renderReportsTab() {
 
 async function renderDeliveryBoysReport(date, container) {
   // Fetch each delivery guy's daily lines
-  const deliveryGuys = state.users.filter(u => u.role === 'delivery' || u.role === 'van');
+  const deliveryGuys = state.users.filter(u => u.role === 'delivery');
   if (!deliveryGuys.length) {
     container.innerHTML = '<div class="empty-state"><p>No delivery guys found.</p></div>';
     return;
@@ -914,7 +968,10 @@ async function renderDeliveryBoysReport(date, container) {
     deliveryGuys.map(u => api(`/daily-lines?guy=${u._id}&date=${date}`).then(r => ({ user: u, groups: r })))
   );
 
-  let html = `<div class="report-header-band"><h4>Delivery Boy Reports</h4><span class="report-date-chip">${fmtDate(date)}</span></div>`;
+  let html = `<div class="report-header-band"><h4>Delivery Boy Reports</h4><span class="report-date-chip">${fmtDate(date)}</span></div>
+    <div style="font-size:11px;color:var(--muted);padding:8px 0 12px 0">
+      Status flow: <strong>Pending Fill</strong> → <strong>Waiting Approval</strong> → <strong>Approved</strong>. “Stock Closed” appears once end-of-day return is accepted.
+    </div>`;
 
   results.forEach(r => {
     if (r.status === 'rejected') return;
@@ -928,13 +985,21 @@ async function renderDeliveryBoysReport(date, container) {
         const fb = l.received - l.delivered - l.nc - l.returned;
         // Same Emty Balance formula as the Excel Template sheet (see My Day tab).
         const eb = l.received - (l.emptyCollected + l.defectCollected) - l.nc - l.returned;
+        const detailsStatus = lineDetailStatus(l);
+        const canApprove = ['owner', 'supervisor'].includes(state.user.role) && detailsStatus === 'SUBMITTED';
         return `<tr>
           <td><span class="badge-source">${l.source}</span></td>
           <td>${l.received}</td><td>${l.delivered}</td><td>${l.nc}</td>
           <td>${l.returned}</td><td><strong>${fb}</strong></td>
           <td>${l.emptyCollected}</td><td>${l.defectCollected}</td>
           <td>${eb}</td>
-          <td>${l.closed ? '<span class="badge badge-accepted">Closed</span>' : '<span class="badge badge-pending">Open</span>'}</td>
+          <td>
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+              ${detailStatusBadge(detailsStatus)}
+              ${l.closed ? '<span class="badge badge-accepted">Stock Closed</span>' : '<span class="badge badge-pending">Stock Open</span>'}
+              ${canApprove ? `<button class="btn-sm btn-success approveLineBtn" data-line="${l._id}">Approve</button>` : ''}
+            </div>
+          </td>
         </tr>`;
       }).join('');
       const totalFilled = t.received - t.delivered - t.nc - t.returned;
@@ -980,6 +1045,21 @@ async function renderDeliveryBoysReport(date, container) {
     return;
   }
   container.innerHTML = html;
+  $$('.approveLineBtn', container).forEach(btn =>
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Approving…';
+      try {
+        await api(`/daily-lines/${btn.dataset.line}/approve`, { method: 'POST' });
+        showToast('✅ Delivery details approved');
+        await renderDeliveryBoysReport(date, container);
+      } catch (err) {
+        showToast('❌ ' + err.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Approve';
+      }
+    })
+  );
 }
 
 function renderReport(kind, data, date) {

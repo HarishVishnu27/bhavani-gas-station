@@ -117,6 +117,22 @@ router.post('/:id/accept', requireAuth, async (req, res) => {
     }
 
     if (request.type === 'ISSUE') {
+      if (request.to.kind === 'USER') {
+        const recipient = await User.findById(request.to.user);
+        if (recipient?.role === 'delivery') {
+          const pendingApprovalLine = await DailyLine.findOne({
+            guy: request.to.user,
+            detailsStatus: { $in: ['PENDING', 'SUBMITTED'] },
+          });
+          if (pendingApprovalLine) {
+            await StockRequest.updateOne({ _id: request._id }, { $set: { status: 'PENDING' } });
+            return res.status(400).json({
+              error: 'Previous delivery details are pending supervisor approval. Complete approval before accepting the next issue.',
+            });
+          }
+        }
+      }
+
       // Deduct from source location
       await adjustLocationBalance(request.from.kind, request.cylinderType, { filled: -request.filled });
 

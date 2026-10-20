@@ -164,6 +164,10 @@ curl -s "$BASE/reports/reconciliation?date=$TODAY" -H "Authorization: Bearer $TO
 
 - Every "accept" is the point where stock actually moves and reports update —
   nothing posts until the receiving side confirms, per the two-way workflow.
+- Delivery daily-line details now have an approval lifecycle:
+  Pending Fill → Waiting Approval → Approved. Delivery users can edit until
+  approval, and they cannot accept a new issue while an earlier line still
+  waits for supervisor approval.
 - A delivery guy's Filled Balance/Empty Balance zero out automatically when
   their end-of-day RETURN request is accepted (no manual reset needed) — but
   "Returned" can also be entered/corrected directly on their own daily line.
@@ -174,7 +178,7 @@ curl -s "$BASE/reports/reconciliation?date=$TODAY" -H "Authorization: Bearer $TO
   that reduces Empty/Defect stock in the Consolidated Report. There is no
   separate "Godown Returns" concept; it's checked against the day's running
   available empty/defect balance before being allowed (can't send more than
-  what's on hand).
+  what's on hand), and now also updates the live GODOWN empty/defect balances.
 - Van does not fill in Delivered/NC/Empty/Defect details itself (matches the
   Excel Van sheet) — what it hands out to each delivery guy shows up on that
   guy's own report and on "Van Overview" / the Van Distribution report.

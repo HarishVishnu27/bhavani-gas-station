@@ -19,6 +19,15 @@ const dailyLineSchema = new mongoose.Schema(
     emptyCollected: { type: Number, default: 0 },
     defectCollected: { type: Number, default: 0 },
 
+    detailsStatus: {
+      type: String,
+      enum: ['PENDING', 'SUBMITTED', 'APPROVED'],
+      default: 'PENDING',
+    },
+    submittedAt: { type: Date },
+    approvedAt: { type: Date },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
     closed: { type: Boolean, default: false }, // true once end-of-day return accepted
   },
   { timestamps: true }

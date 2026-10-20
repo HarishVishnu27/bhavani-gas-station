@@ -1,7 +1,7 @@
 const express = require('express');
 const EmptiesToLorry = require('../models/EmptiesToLorry');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { todayBusinessDate } = require('../utils/stockHelpers');
+const { adjustLocationBalance, todayBusinessDate } = require('../utils/stockHelpers');
 const { openingStockOn, movementBetween, nextDateStr } = require('../utils/reportHelpers');
 
 const router = express.Router();
@@ -35,6 +35,7 @@ router.post('/', requireAuth, requireRole('owner', 'supervisor'), async (req, re
     return res.status(400).json({ error: `Only ${availableDefect} defect cylinders available for this type today (asked for ${defect})` });
   }
 
+  await adjustLocationBalance('GODOWN', cylinderType, { empty: -empty, defect: -defect });
   const entry = await EmptiesToLorry.create({
     businessDate: date,
     cylinderType,

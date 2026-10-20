@@ -31,6 +31,25 @@ business logic against the backend API before we build the mobile app.
   layout as the Excel), raise a return (empty/defect collected + unsold
   filled stock) to either the Godown or the Van.
 
+## Delivery detail approval flow
+
+For delivery users, each accepted stock batch now follows:
+
+1. **Pending Fill** — line created after issue acceptance.
+2. **Waiting Approval** — line is saved with delivery details.
+3. **Approved** — supervisor/owner approves that line.
+
+Delivery users can keep editing while a line is in **Waiting Approval**, but
+they cannot accept a new stock issue while any previous line is pending
+approval.
+
+## Frontend folder structure
+
+- `index.html` — page shell, app regions, top bar and navigation containers.
+- `style.css` — all design tokens, table/report styles, badges and layouts.
+- `app.js` — state management, role-based tabs, API calls, and report rendering.
+- `README.md` — usage and workflow notes for this web console.
+
 ## Suggested test run (matches the scenario we walked through)
 
 1. Log in as `supervisor`. Go to **Stock** → set opening stock for Godown,

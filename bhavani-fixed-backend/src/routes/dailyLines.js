@@ -58,16 +58,17 @@ function addInto(total, line) {
 }
 
 // PATCH /api/daily-lines/:id   { delivered?, nc?, returned?, emptyCollected?, defectCollected? }
-// A delivery guy/van updates their own running numbers through the day.
-// "returned" (unsold filled handed back) is normally also set automatically
-// when their end-of-day RETURN request is accepted (and that locks the line
-// via `closed`), but it's editable here too so a guy can correct/enter it
-// directly rather than only through the accept workflow.
+// A delivery guy updates their own running numbers through the day.
+// Once a line is saved, it moves to SUBMITTED and waits for supervisor approval.
+// It stays editable until approved.
 router.patch('/:id', requireAuth, requireRole('delivery', 'van'), async (req, res) => {
   const line = await DailyLine.findById(req.params.id);
   if (!line) return res.status(404).json({ error: 'Line not found' });
   if (line.guy.toString() !== req.user.id) return res.status(403).json({ error: 'Not your line' });
   if (line.closed) return res.status(400).json({ error: 'This line is already closed out for the day' });
+  if (line.detailsStatus === 'APPROVED') {
+    return res.status(400).json({ error: 'This line is already approved by supervisor and cannot be edited' });
+  }
 
   const { delivered, nc, returned, emptyCollected, defectCollected } = req.body;
   if (delivered !== undefined) line.delivered = delivered;
@@ -80,6 +81,25 @@ router.patch('/:id', requireAuth, requireRole('delivery', 'van'), async (req, re
     return res.status(400).json({ error: 'Delivered + NC + Returned cannot exceed Received for this line' });
   }
 
+  line.detailsStatus = 'SUBMITTED';
+  line.submittedAt = new Date();
+  await line.save();
+  res.json(line);
+});
+
+// POST /api/daily-lines/:id/approve
+// Supervisor/owner approves delivery details after reviewing them.
+router.post('/:id/approve', requireAuth, requireRole('owner', 'supervisor'), async (req, res) => {
+  const line = await DailyLine.findById(req.params.id);
+  if (!line) return res.status(404).json({ error: 'Line not found' });
+  if (line.detailsStatus === 'APPROVED') return res.json(line);
+  if (line.detailsStatus === 'PENDING') {
+    return res.status(400).json({ error: 'Delivery details are not submitted yet' });
+  }
+
+  line.detailsStatus = 'APPROVED';
+  line.approvedAt = new Date();
+  line.approvedBy = req.user.id;
   await line.save();
   res.json(line);
 });
