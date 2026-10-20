@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bhavani Agencies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header id="topbar">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="6" fill="#2563eb"/><path d="M7 14h14M14 7v14" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <span class="brand-name">Bhavani Agencies</span>
+  </div>
+  <div id="userBox" class="hidden">
+    <div class="user-info">
+      <div class="avatar" id="avatarEl">?</div>
+      <div>
+        <div id="whoami" class="user-name"></div>
+        <div id="userRole" class="user-role"></div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button id="changePwBtn" class="btn-ghost">🔑 Password</button>
+      <button id="logoutBtn" class="btn-ghost">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<!-- API CONFIG BAR -->
+<div id="apiConfig" class="api-config-bar">
+  <span class="api-label">🔗 API:</span>
+  <input id="apiBase" type="text" placeholder="http://your-server:4000/api" />
+  <button id="saveApiBase" class="btn-sm">Connect</button>
+  <span id="apiStatus"></span>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div id="pwModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <h3>Change Password</h3>
+    <label class="field-label">Current password
+      <input id="pwCurrent" type="password" required />
+    </label>
+    <label class="field-label">New password
+      <input id="pwNew" type="password" required minlength="4" />
+    </label>
+    <div class="modal-actions">
+      <button id="pwSubmit" class="btn-primary">Change</button>
+      <button type="button" id="pwCancel" class="btn-secondary">Cancel</button>
+    </div>
+    <div id="pwMsg"></div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<section id="loginView" class="login-screen hidden">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#2563eb"/><path d="M12 24h24M24 12v24" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg>
+    </div>
+    <h1 class="login-title">Bhavani Agencies</h1>
+    <p class="login-sub">Cylinder Inventory System</p>
+    <form id="loginForm">
+      <label class="field-label">Username
+        <input id="loginUsername" required autocomplete="username" />
+      </label>
+      <label class="field-label">Password
+        <input id="loginPassword" type="password" required autocomplete="current-password" />
+      </label>
+      <button type="submit" class="btn-primary btn-full">Sign In</button>
+    </form>
+    <div id="loginError" class="msg-error"></div>
+    <p class="hint-text">Default password: <code>pass</code></p>
+  </div>
+</section>
+
+<!-- MAIN APP -->
+<main id="appView" class="app-layout hidden">
+  <nav id="sidebar">
+    <div id="navItems"></div>
+  </nav>
+  <div class="app-body">
+    <!-- Alert banner for pending issues -->
+    <div id="pendingAlert" class="pending-alert hidden">
+      ⚠️ <strong>Action needed:</strong> You have accepted stock — please enter your delivery details before accepting new issues.
+    </div>
+    <section id="tabContent"></section>
+  </div>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
