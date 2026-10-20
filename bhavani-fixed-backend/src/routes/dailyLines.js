@@ -1,11 +1,17 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const DailyLine = require('../models/DailyLine');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { createRateLimiter } = require('../middleware/rateLimit');
 const { todayBusinessDate } = require('../utils/stockHelpers');
 
 const router = express.Router();
-const approveLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
+const approveLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again shortly.' },
+});
 
 // GET /api/daily-lines?guy=<id>&date=YYYY-MM-DD
 // Delivery guys/van see their own lines; owner/supervisor can pass ?guy= to

@@ -1,15 +1,21 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const StockRequest = require('../models/StockRequest');
 const DailyLine = require('../models/DailyLine');
 const EmptyReturnLog = require('../models/EmptyReturnLog');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
-const { createRateLimiter } = require('../middleware/rateLimit');
 const { adjustLocationBalance, todayBusinessDate } = require('../utils/stockHelpers');
 
 const router = express.Router();
-const acceptLimiter = createRateLimiter({ windowMs: 60_000, max: 40 });
+const acceptLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 40,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again shortly.' },
+});
 
 // POST /api/stock-requests  - raise an ISSUE or a RETURN request
 router.post('/', requireAuth, async (req, res) => {
