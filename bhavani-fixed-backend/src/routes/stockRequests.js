@@ -5,9 +5,11 @@ const DailyLine = require('../models/DailyLine');
 const EmptyReturnLog = require('../models/EmptyReturnLog');
 const User = require('../models/User');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { createRateLimiter } = require('../middleware/rateLimit');
 const { adjustLocationBalance, todayBusinessDate } = require('../utils/stockHelpers');
 
 const router = express.Router();
+const acceptLimiter = createRateLimiter({ windowMs: 60_000, max: 40 });
 
 // POST /api/stock-requests  - raise an ISSUE or a RETURN request
 router.post('/', requireAuth, async (req, res) => {
@@ -95,7 +97,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 // POST /api/stock-requests/:id/accept
 // NOTE: Uses non-transactional sequential writes — compatible with standalone MongoDB
-router.post('/:id/accept', requireAuth, async (req, res) => {
+router.post('/:id/accept', requireAuth, acceptLimiter, async (req, res) => {
   try {
     // Use findOneAndUpdate to atomically claim the request (avoid double-accept race)
     const request = await StockRequest.findOneAndUpdate(

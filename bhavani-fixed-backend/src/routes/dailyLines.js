@@ -1,9 +1,11 @@
 const express = require('express');
 const DailyLine = require('../models/DailyLine');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { createRateLimiter } = require('../middleware/rateLimit');
 const { todayBusinessDate } = require('../utils/stockHelpers');
 
 const router = express.Router();
+const approveLimiter = createRateLimiter({ windowMs: 60_000, max: 30 });
 
 // GET /api/daily-lines?guy=<id>&date=YYYY-MM-DD
 // Delivery guys/van see their own lines; owner/supervisor can pass ?guy= to
@@ -89,7 +91,7 @@ router.patch('/:id', requireAuth, requireRole('delivery', 'van'), async (req, re
 
 // POST /api/daily-lines/:id/approve
 // Supervisor/owner approves delivery details after reviewing them.
-router.post('/:id/approve', requireAuth, requireRole('owner', 'supervisor'), async (req, res) => {
+router.post('/:id/approve', requireAuth, requireRole('owner', 'supervisor'), approveLimiter, async (req, res) => {
   const line = await DailyLine.findById(req.params.id);
   if (!line) return res.status(404).json({ error: 'Line not found' });
   if (line.detailsStatus === 'APPROVED') return res.json(line);
